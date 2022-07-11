@@ -118,12 +118,9 @@ class King extends Piece{
                         let pos = board[i][j].position
                         if (board[i][j].constructor.name == "Pawn"){
                             let pawn = board[i][j]
-                            if (pawn.dir + pos[0] <8 && pawn.dir + pos[0] >=0 && pawn.dir + pos[1] <8 && pawn.dir + pos[1] >=0){
-                                endangeredTiles.add(displayedBoard[pawn.dir + pos[0]][ pos[1] + 1])
-                                endangeredTiles.add(displayedBoard[pawn.dir + pos[0]][ pos[1] - 1])
-                            }
+                            endangeredTiles.add([pawn.dir + pos[0], pos[1] + 1])
+                            endangeredTiles.add([pawn.dir + pos[0], pos[1] - 1])
                             continue
-
                         }
                         //to avoid recursion by calling king.get_valid_moves() on enemy king 
                         if (board[i][j].constructor.name == "King"){
@@ -137,19 +134,15 @@ class King extends Piece{
                                 [1,0],
                                 [1,1]
                             ];
-                            for(var k=0; k<kingMoves.length; k++){
-                                if (pos[0] + kingMoves[k][0]<8 && pos[0] + kingMoves[k][0]>=0 && pos[1] + kingMoves[k][1]<8 && pos[1] + kingMoves[k][1]>=0){
-                                    endangeredTiles.add(displayedBoard[pos[0]+ kingMoves[k][0]][ pos[1] + kingMoves[k][1]])
-                                }
+                            for(var k =0; k<kingMoves.length; k++){
+                                endangeredTiles.add([pos[0]+ kingMoves[k][0], pos[1] + kingMoves[k][1]])
                             }
                             continue
                         }else{
                             let moves = board[i][j].get_valid_moves()
                             for(var k =0; k<moves.length; k++){
                                 let move = moves[k]
-                                if (move[0] + pos[0] <8 && move[0] + pos[0] >=0 && move[1] + pos[1] <8 && move[1] + pos[1] >=0){
-                                endangeredTiles.add(displayedBoard[move[0] + pos[0]][ move[1] + pos[1]])
-                                }
+                                endangeredTiles.add([move[0] + pos[0], move[1] + pos[1]])
                                 continue
                             }
                         }
@@ -167,13 +160,10 @@ class King extends Piece{
         console.log(positions)
         console.log(endangeredTiles)
         for (var i=0; i<positions.length; i++){
-            console.log(endangeredTiles)
-            endangeredTiles.forEach(element => {
-                console.log(element)
-                let pos = element.position
-                console.log(pos)
+            endangeredTiles.forEach(pos => {
                 if ((pos[0] == positions[i][0]) && (pos[1] == positions[i][1])){
                     positions.splice(i,1)
+                    console.log("position: " + pos[0] + " " + pos[1])
                 }
                 if (pos[0]<8 && pos[0]>=0 && pos[1]<8 && pos[1]>=0){
                 displayedBoard[pos[0]][pos[1]].classList.add("redDashedTile")
