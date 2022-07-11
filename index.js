@@ -1,7 +1,6 @@
 let displayedBoard = [];
 let board = [];
 let pickedPiece = null
-let movingPiece = null
 let greenHilightedTiles = []
 let redHilightedTiles = []
 let history = [];
@@ -12,13 +11,6 @@ let rimg = "figures/rook";
 let bimg = "figures/bishop";
 let nimg = "figures/knight";
 let pimg = "figures/pawn";
-
-function abs(x){
-    if (x<0){
-        return -x
-    }
-    return x
-}
 
 class Piece{
     owner;
@@ -35,7 +27,6 @@ class Piece{
         this.owner = owner;
         this.position = position;
         board[position[0]][position[1]] = this;
-        displayedBoard[this.position[0]][this.position[1]].position = this.position
         displayedBoard[this.position[0]][this.position[1]].addEventListener("mousedown", picked_up);
     }
 
@@ -49,12 +40,9 @@ class Piece{
     }
 
     delete(){
-        this.owner = null;
         board[this.position[0]][this.position[1]] = null;
         displayedBoard[this.position[0]][this.position[1]].removeChild(this.img)
         displayedBoard[this.position[0]][this.position[1]].removeEventListener("mousedown", picked_up)
-        this.img = null;
-        this.position = null;
         delete this
     }
 
@@ -238,7 +226,6 @@ function picked_up(evt){
 
     pickedPiece = board[this.position[0]][this.position[1]]
     clear_hilighted()
-    console.log(pickedPiece)
 
     if (pickedPiece.owner != currentPlayer){
         return
@@ -304,49 +291,73 @@ function clear_picked_piece(){
 }
 
 function select_move(){
-    movingPiece = pickedPiece
-    clear_picked_piece()
 
-    y = movingPiece.position[0]
-    x = movingPiece.position[1]
+    y = pickedPiece.position[0]
+    x = pickedPiece.position[1]
     a = this.position[0]
     b = this.position[1]
+    pickedPiece.moveCounter +=1
 
-    movePiece(movingPiece.position, this.position)
-    movingPiece.position = [a,b]
+
     captured = null
     if(!(board[a][b] == null)){
         captured = board[a][b]
         board[a][b].delete()
     }
     history.push({"from": [y,x], "to": [a,b], "captured": captured})
+    pos = pickedPiece.position
+    clear_picked_piece()
+    movePiece(pos, this.position)
+    toggle_player()
+
+    clear_hilighted()
+}
+
+function toggle_player(){
+    if (currentPlayer == "White"){
+        currentPlayer = "Black"
+    }else{
+        currentPlayer = "White"
+    }
+    update_label(currentPlayer + "'s turn")
+}
+
+function movePiece(from, to){
+    let y = from[0]
+    let x = from[1]
+    let a = to[0]
+    let b = to[1]
+    let movingPiece = board[y][x]
 
     board[a][b] = movingPiece
+    movingPiece.position = [a,b]
     board[y][x] = null
-
     displayedBoard[a][b].appendChild(movingPiece.img)
     displayedBoard[a][b].addEventListener("mousedown", picked_up);
     displayedBoard[y][x].removeEventListener("mousedown", picked_up)
 
-
-    movingPiece.moveCounter +=1
-
-    if (movingPiece.owner == "White"){
-        currentPlayer = "Black"
-        console.log(currentPlayer, movingPiece.owner == "White")
-    }else{
-        currentPlayer = "White"
-    }x
-    clear_hilighted()
-}
-
-function movePiece(from, to){
-
 }
 
 function undo(){
+    
     clear_hilighted();
     clear_picked_piece();
+    toggle_player();
+    if (history.length == 0){
+        update_label()
+        return
+    }
+    let lastMove = history.pop()
+    movePiece(lastMove.to, lastMove.from)
+    
+    returnedPiece = lastMove.captured
+    if (returnedPiece == null){
+        return
+    }
+    returnedPiece.moveCounter -=1
+
+    board[lastMove.to[0]][lastMove.to[1]] = new returnedPiece.constructor(returnedPiece.owner, returnedPiece.position)
+    board[lastMove.to[0]][lastMove.to[1]].moveCounter = returnedPiece.moveCounter
 
 }
 
@@ -364,6 +375,8 @@ function restart_game(){
             }
         }
     }
+    currentPlayer = "White";
+    history = [];
     clear_hilighted();
     clear_picked_piece();
     place_pieces();
@@ -421,3 +434,6 @@ function place_pieces(){
 
 }
 
+function update_label(a){
+
+}
