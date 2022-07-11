@@ -93,8 +93,9 @@ class King extends Piece{
         super(owner,position);
         this.add_img(kimg);
     }
-    update_figure_moves(){
-        this.figureMoves = [
+    // King has two functions for moves; update_possible_figure_moves is called first and based on it check_for_attacks eliminates moves putting king in check;
+    update_possible_figure_moves(){
+        this.possibleFigureMoves = [
             [-1,-1],
             [-1,0],
             [-1,1],
@@ -105,7 +106,91 @@ class King extends Piece{
             [1,1]
         ];
     }
+    update_figure_moves(){
+        this.figureMoves = this.check_for_attacks()
+    }
+    check_for_attacks(){
+        let endangeredTiles = new Set
+        for(var i=0; i<board.length; i++){
+            for(var j=0; j<board[i].length; j++){
+                if (board[i][j] != null){
+                    if (board[i][j].owner != this.owner){
+                        let pos = board[i][j].position
+                        if (board[i][j].constructor.name == "Pawn"){
+                            let pawn = board[i][j]
+                            if (pawn.dir + pos[0] <8 && pawn.dir + pos[0] >=0 && pawn.dir + pos[1] <8 && pawn.dir + pos[1] >=0){
+                                endangeredTiles.add(displayedBoard[pawn.dir + pos[0]][ pos[1] + 1])
+                                endangeredTiles.add(displayedBoard[pawn.dir + pos[0]][ pos[1] - 1])
+                            }
+                            continue
+
+                        }
+                        //to avoid recursion by calling king.get_valid_moves() on enemy king 
+                        if (board[i][j].constructor.name == "King"){
+                            let kingMoves = [
+                                [-1,-1],
+                                [-1,0],
+                                [-1,1],
+                                [0,-1],
+                                [0,1],
+                                [1,-1],
+                                [1,0],
+                                [1,1]
+                            ];
+                            for(var k=0; k<kingMoves.length; k++){
+                                if (pos[0] + kingMoves[k][0]<8 && pos[0] + kingMoves[k][0]>=0 && pos[1] + kingMoves[k][1]<8 && pos[1] + kingMoves[k][1]>=0){
+                                    endangeredTiles.add(displayedBoard[pos[0]+ kingMoves[k][0]][ pos[1] + kingMoves[k][1]])
+                                }
+                            }
+                            continue
+                        }else{
+                            let moves = board[i][j].get_valid_moves()
+                            for(var k =0; k<moves.length; k++){
+                                let move = moves[k]
+                                if (move[0] + pos[0] <8 && move[0] + pos[0] >=0 && move[1] + pos[1] <8 && move[1] + pos[1] >=0){
+                                endangeredTiles.add(displayedBoard[move[0] + pos[0]][ move[1] + pos[1]])
+                                }
+                                continue
+                            }
+                        }
+                    }
+                }    
+            }
+        }
+        // moves are vectors, positions and tiles are coordinates
+        this.update_possible_figure_moves()
+        let moves = this.possibleFigureMoves
+        let positions = []
+        for (var i=0; i<moves.length; i++){
+            positions.push([this.position[0] + moves[i][0], this.position[1] + moves[i][1]])
+        }
+        console.log(positions)
+        console.log(endangeredTiles)
+        for (var i=0; i<positions.length; i++){
+            console.log(endangeredTiles)
+            endangeredTiles.forEach(element => {
+                console.log(element)
+                let pos = element.position
+                console.log(pos)
+                if ((pos[0] == positions[i][0]) && (pos[1] == positions[i][1])){
+                    positions.splice(i,1)
+                }
+                if (pos[0]<8 && pos[0]>=0 && pos[1]<8 && pos[1]>=0){
+                displayedBoard[pos[0]][pos[1]].classList.add("redDashedTile")
+                }
+            });
+        }
+        console.log("positions", positions)
+        let safeMoves = []
+        for (var i=0; i<positions.length; i++){
+            safeMoves.push([positions[i][0] - this.position[0] , positions[i][1] - this.position[1]])
+        }
+        return safeMoves
+    }
 }
+
+
+
 
 class Queen extends Piece{
     constructor(owner, position){
@@ -183,32 +268,30 @@ class Pawn extends Piece{
     constructor(owner, position){
         super(owner,position)
         this.add_img(pimg)
+        if (this.owner == "Black"){
+            this.dir = 1
+        }
+        if (this.owner == "White"){
+            this.dir = -1
+        }
     }
     update_figure_moves(){
         this.figureMoves = []
 
         let y = this.position[0]
         let x = this.position[1]
-        let dir = 0
-        if (this.owner == "Black"){
-            dir = 1
-        }
-        if (this.owner == "White"){
-            dir = -1
-        }
-
-        if (board[y+dir][x] === null){
-            this.figureMoves.push([dir,0])
+        if (board[y+this.dir][x] === null){
+            this.figureMoves.push([this.dir,0])
         }
         if (this.moveCounter == 0){
-            if ((board[y+2*dir][x] === null))
-                this.figureMoves.push([dir*2,0])
+            if ((board[y+2*this.dir][x] === null))
+                this.figureMoves.push([this.dir*2,0])
         }
-        if (!(board[y+dir][x+1] === null)){
-            this.figureMoves.push([dir,1])
+        if (!(board[y+this.dir][x+1] === null)){
+            this.figureMoves.push([this.dir,1])
         }
-        if (!(board[y+dir][x-1] === null)){
-            this.figureMoves.push([dir,-1])
+        if (!(board[y+this.dir][x-1] === null)){
+            this.figureMoves.push([this.dir,-1])
         }
 
     }
@@ -328,14 +411,12 @@ function movePiece(from, to){
     let a = to[0]
     let b = to[1]
     let movingPiece = board[y][x]
-
     board[a][b] = movingPiece
     movingPiece.position = [a,b]
     board[y][x] = null
     displayedBoard[a][b].appendChild(movingPiece.img)
     displayedBoard[a][b].addEventListener("mousedown", picked_up);
     displayedBoard[y][x].removeEventListener("mousedown", picked_up)
-
 }
 
 function undo(){
@@ -344,7 +425,7 @@ function undo(){
     clear_picked_piece();
     toggle_player();
     if (history.length == 0){
-        update_label()
+        update_label("Cannot undo, no moves made")
         return
     }
     let lastMove = history.pop()
@@ -416,13 +497,14 @@ function place_pieces(){
     new Bishop("Black", [0,5], bimg);
     new Knight("Black", [0,6], nimg);
     new Rook("Black", [0,7], rimg);
-    for (var i = 0; i < 8; i++) {
+    new Pawn("Black", [1,0], pimg);
+    /*for (var i = 0; i < 8; i++) {
         new Pawn("Black", [1,i], pimg);
     }
     //White
     for (var i = 0; i < 8; i++) {
         new Pawn("White", [6,i], pimg);
-    }
+    }*/
     new Rook("White", [7,0], rimg);
     new Knight("White", [7,1], nimg);
     new Bishop("White", [7,2], bimg);
@@ -434,6 +516,7 @@ function place_pieces(){
 
 }
 
-function update_label(a){
+function update_label(text){
+    document.getElementById("textDisplay").innerHTML = text
 
 }
