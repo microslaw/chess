@@ -5,6 +5,7 @@ let greenHilightedTiles = []
 let redHilightedTiles = []
 let history = [];
 let kings = {}
+let check = false
 let currentPlayer = "White"
 let kimg = "figures/king";
 let qimg = "figures/queen";
@@ -12,6 +13,14 @@ let rimg = "figures/rook";
 let bimg = "figures/bishop";
 let nimg = "figures/knight";
 let pimg = "figures/pawn";
+
+/*
+TO DO:
+win
+undergrading
+en passa
+castling
+*/ 
 
 class Piece{
     owner;
@@ -56,11 +65,29 @@ class Piece{
         }
         for (var i=0; i<moves.length; i++){
             let move = moves[i]
-            if ((move[0] + this.position[0])<8 &&(move[0]+this.position[0])>=0 && (move[1] + this.position[1])<8 && (move[1] + this.position[1])>=0){
-                if (board[move[0] + this.position[0]][move[1] + this.position[1]] === null){
-                    validatedMoves.push(move)
-                }else{
-                    if (board[move[0] + this.position[0]][move[1] + this.position[1]].owner != this.owner) {
+            let pos = this.position
+            let newpos = [pos[0] + move[0], pos[1] + move[1]]
+            let otherOwner = ""
+            if ((newpos[0])<8 &&(newpos[0])>=0 && (newpos[1])<8 && (newpos[1])>=0){
+                if (board[newpos[0]][newpos[1]] != null){
+                    otherOwner = board[newpos[0]][newpos[1]].owner
+                }
+                if ((otherOwner != this.owner)) {
+                    if (check && this.owner == currentPlayer){
+                        //simulate move to see if it deals with check 
+                        let replaced = board[newpos[0]][newpos[1]]
+                        board[newpos[0]][newpos[1]] = board[pos[0]][pos[1]]
+                        board[pos[0]][pos[1]] = null
+                        this.position = newpos
+                        if (!look_and_handle_check(currentPlayer, true)){
+                            validatedMoves.push(move)
+                        }
+                        this.position = pos
+                        board[newpos[0]][newpos[1]] = replaced
+                        board[pos[0]][pos[1]] = this
+
+                    }else
+                    {
                         validatedMoves.push(move)
                     }
                 }
@@ -109,9 +136,9 @@ class King extends Piece{
         ];
     }
     update_figure_moves(){
-        this.figureMoves = this.check_for_attacks()
+        this.figureMoves = this.eliminate_endangering_moves()
     }
-    check_for_attacks(){
+    get_endangered_tiles(){
         let endangeredTiles = []
         for(var i=0; i<board.length; i++){
             for(var j=0; j<board[i].length; j++){
@@ -152,6 +179,10 @@ class King extends Piece{
                 }    
             }
         }
+        return endangeredTiles
+    }
+    eliminate_endangering_moves(){
+        let endangeredTiles = this.get_endangered_tiles()
         // moves are vectors, positions and tiles are coordinates
         this.update_possible_figure_moves()
         let moves = this.possibleFigureMoves
@@ -160,9 +191,6 @@ class King extends Piece{
         for (var i=0; i<moves.length; i++){
             positions.push([this.position[0] + moves[i][0], this.position[1] + moves[i][1]])
         }
-
-        console.log("pre selection", positions)
-        console.log("pre selection", endangeredTiles)
         
         for (var i=0; i<positions.length; i++){
             if(!has_position(endangeredTiles, positions[i])){
@@ -170,17 +198,14 @@ class King extends Piece{
             }             
         }
 
-        console.log("post selection", safePositions)
         let safeMoves = []
         for (var i=0; i<safePositions.length; i++){
-            console.log(safePositions[i], this.safePosition)
             safeMoves.push([safePositions[i][0] - this.position[0], safePositions[i][1] - this.position[1]])
         }
 
         return safeMoves
     }
 }
-
 
 class Queen extends Piece{
     constructor(owner, position){
@@ -304,7 +329,6 @@ function picked_up(evt){
         return
     }
 
-
     displayedBoard[this.position[0]][this.position[1]].classList.add("solidTile")
     pickedPiece.img.classList.add("selectedFigure")
     pickedPiece.img.classList.remove("basicFigure")
@@ -339,7 +363,6 @@ function picked_up(evt){
 
 
 function add_new(element, array){
-    //console.log(array)
     for(var i = 0; i<array.length; i++){
         if(array[i][0] == element[0] && array[i][1] == element[1]){
             return
@@ -406,7 +429,8 @@ function select_move(){
     clear_picked_piece()
     movePiece(pos, this.position)
     toggle_player()
-
+    check = false
+    look_and_handle_check(currentPlayer)
     clear_hilighted()
 }
 
@@ -424,7 +448,6 @@ function movePiece(from, to){
     displayedBoard[y][x].removeEventListener("mousedown", picked_up)
 }
 
-
 function toggle_player(){
     if (currentPlayer == "White"){
         currentPlayer = "Black"
@@ -434,8 +457,30 @@ function toggle_player(){
     update_label(currentPlayer + "'s turn")
 }
 
-function is_in_check(player){
-
+function look_and_handle_check(player, simulated = false){
+    if (simulated){
+        return has_position(kings[player].get_endangered_tiles(), kings[player].position) 
+    }
+    if (count_possible_moves(currentPlayer) == 0){
+        if (has_position(kings[player].get_endangered_tiles(), kings[player].position)){
+            let otherPlayer = ""
+            if (currentPlayer == "White"){
+                otherPlayer = "Black"
+            }else{
+                otherPlayer = "White"
+            }
+            update_label(currentPlayer + " is in checkmate. " + otherPlayer + " wins!")
+            return
+        }else{
+            update_label(currentPlayer + " is in stalemate. It's a draw!")
+            return
+        }
+    }
+    if (has_position(kings[player].get_endangered_tiles(), kings[player].position)){
+        update_label(currentPlayer + " is in check!")
+        check = true
+        return true
+    }
 }
 
 function undo(){
@@ -517,13 +562,13 @@ function place_pieces(){
     new Bishop("Black", [0,5], bimg);
     new Knight("Black", [0,6], nimg);
     new Rook("Black", [0,7], rimg);
-    for (var i = 0; i < 8; i++) {
+    /*for (var i = 0; i < 8; i++) {
         new Pawn("Black", [1,i], pimg);
     }
     //White
     for (var i = 0; i < 8; i++) {
         new Pawn("White", [6,i], pimg);
-    }
+    }*/
     new Rook("White", [7,0], rimg);
     new Knight("White", [7,1], nimg);
     new Bishop("White", [7,2], bimg);
@@ -535,7 +580,18 @@ function place_pieces(){
 
 }
 
+function count_possible_moves(player){
+    let possibleMoves = 0
+    for (var i = 0; i < board.length; i++) {
+        for (var j = 0; j < board[i].length; j++) {
+            if (board[i][j] != null && board[i][j].owner == player){
+                possibleMoves += board[i][j].get_valid_moves().length
+            }
+        }
+    }
+    return possibleMoves
+}
+
 function update_label(text){
     document.getElementById("textDisplay").innerHTML = text
-
 }
