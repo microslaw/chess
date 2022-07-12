@@ -4,6 +4,7 @@ let pickedPiece = null
 let greenHilightedTiles = []
 let redHilightedTiles = []
 let history = [];
+let kings = {}
 let currentPlayer = "White"
 let kimg = "figures/king";
 let qimg = "figures/queen";
@@ -92,6 +93,7 @@ class King extends Piece{
     constructor(owner, position){
         super(owner,position);
         this.add_img(kimg);
+        kings[this.owner] = this
     }
     // King has two functions for moves; update_possible_figure_moves is called first and based on it check_for_attacks eliminates moves putting king in check;
     update_possible_figure_moves(){
@@ -110,7 +112,7 @@ class King extends Piece{
         this.figureMoves = this.check_for_attacks()
     }
     check_for_attacks(){
-        let endangeredTiles = new Set
+        let endangeredTiles = []
         for(var i=0; i<board.length; i++){
             for(var j=0; j<board[i].length; j++){
                 if (board[i][j] != null){
@@ -118,8 +120,8 @@ class King extends Piece{
                         let pos = board[i][j].position
                         if (board[i][j].constructor.name == "Pawn"){
                             let pawn = board[i][j]
-                            endangeredTiles.add([pawn.dir + pos[0], pos[1] + 1])
-                            endangeredTiles.add([pawn.dir + pos[0], pos[1] - 1])
+                            add_new([pawn.dir + pos[0], pos[1] + 1], endangeredTiles)
+                            add_new([pawn.dir + pos[0], pos[1] - 1], endangeredTiles)
                             continue
                         }
                         //to avoid recursion by calling king.get_valid_moves() on enemy king 
@@ -135,14 +137,14 @@ class King extends Piece{
                                 [1,1]
                             ];
                             for(var k =0; k<kingMoves.length; k++){
-                                endangeredTiles.add([pos[0]+ kingMoves[k][0], pos[1] + kingMoves[k][1]])
+                                add_new([kingMoves[k][0] + pos[0], kingMoves[k][1] + pos[1]], endangeredTiles)
                             }
                             continue
                         }else{
                             let moves = board[i][j].get_valid_moves()
                             for(var k =0; k<moves.length; k++){
                                 let move = moves[k]
-                                endangeredTiles.add([move[0] + pos[0], move[1] + pos[1]])
+                                add_new([move[0] + pos[0], move[1] + pos[1]], endangeredTiles)
                                 continue
                             }
                         }
@@ -154,32 +156,30 @@ class King extends Piece{
         this.update_possible_figure_moves()
         let moves = this.possibleFigureMoves
         let positions = []
+        let safePositions = []
         for (var i=0; i<moves.length; i++){
             positions.push([this.position[0] + moves[i][0], this.position[1] + moves[i][1]])
         }
-        console.log(positions)
-        console.log(endangeredTiles)
+
+        console.log("pre selection", positions)
+        console.log("pre selection", endangeredTiles)
+        
         for (var i=0; i<positions.length; i++){
-            endangeredTiles.forEach(pos => {
-                if ((pos[0] == positions[i][0]) && (pos[1] == positions[i][1])){
-                    positions.splice(i,1)
-                    console.log("position: " + pos[0] + " " + pos[1])
-                }
-                if (pos[0]<8 && pos[0]>=0 && pos[1]<8 && pos[1]>=0){
-                displayedBoard[pos[0]][pos[1]].classList.add("redDashedTile")
-                }
-            });
+            if(!has_position(endangeredTiles, positions[i])){
+            safePositions.push(positions[i])
+            }             
         }
-        console.log("positions", positions)
+
+        console.log("post selection", safePositions)
         let safeMoves = []
-        for (var i=0; i<positions.length; i++){
-            safeMoves.push([positions[i][0] - this.position[0] , positions[i][1] - this.position[1]])
+        for (var i=0; i<safePositions.length; i++){
+            console.log(safePositions[i], this.safePosition)
+            safeMoves.push([safePositions[i][0] - this.position[0], safePositions[i][1] - this.position[1]])
         }
+
         return safeMoves
     }
 }
-
-
 
 
 class Queen extends Piece{
@@ -337,6 +337,30 @@ function picked_up(evt){
     }        
 }
 
+
+function add_new(element, array){
+    //console.log(array)
+    for(var i = 0; i<array.length; i++){
+        if(array[i][0] == element[0] && array[i][1] == element[1]){
+            return
+        }
+    }
+    array.push(element)
+
+    if (array.length == 0){
+        array.push(element)
+    }
+}
+
+function has_position(arr, pos){
+    for (var i = 0; i<arr.length;i++){
+        if (arr[i][0] == pos[0] && arr[i][1] == pos[1]){
+            return true
+        }
+    }
+    return false
+}
+
 // clear hilighted apart from clearing hilighted tiles, also adds back event listeners for picked_up (see line 255 in picked_up()), and removes select_move listeners
 function clear_hilighted(){
     for(var i = 0; i<greenHilightedTiles.length; i++){
@@ -386,15 +410,6 @@ function select_move(){
     clear_hilighted()
 }
 
-function toggle_player(){
-    if (currentPlayer == "White"){
-        currentPlayer = "Black"
-    }else{
-        currentPlayer = "White"
-    }
-    update_label(currentPlayer + "'s turn")
-}
-
 function movePiece(from, to){
     let y = from[0]
     let x = from[1]
@@ -407,6 +422,20 @@ function movePiece(from, to){
     displayedBoard[a][b].appendChild(movingPiece.img)
     displayedBoard[a][b].addEventListener("mousedown", picked_up);
     displayedBoard[y][x].removeEventListener("mousedown", picked_up)
+}
+
+
+function toggle_player(){
+    if (currentPlayer == "White"){
+        currentPlayer = "Black"
+    }else{
+        currentPlayer = "White"
+    }
+    update_label(currentPlayer + "'s turn")
+}
+
+function is_in_check(player){
+
 }
 
 function undo(){
@@ -448,6 +477,7 @@ function restart_game(){
     }
     currentPlayer = "White";
     history = [];
+    kings = []
     clear_hilighted();
     clear_picked_piece();
     place_pieces();
@@ -487,14 +517,13 @@ function place_pieces(){
     new Bishop("Black", [0,5], bimg);
     new Knight("Black", [0,6], nimg);
     new Rook("Black", [0,7], rimg);
-    new Pawn("Black", [1,0], pimg);
-    /*for (var i = 0; i < 8; i++) {
+    for (var i = 0; i < 8; i++) {
         new Pawn("Black", [1,i], pimg);
     }
     //White
     for (var i = 0; i < 8; i++) {
         new Pawn("White", [6,i], pimg);
-    }*/
+    }
     new Rook("White", [7,0], rimg);
     new Knight("White", [7,1], nimg);
     new Bishop("White", [7,2], bimg);
